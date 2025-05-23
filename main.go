@@ -14,11 +14,30 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
+// CORS middleware
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow requests from any origin
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		return true // Allow all origins for WebSocket
 	},
 }
 
@@ -142,6 +161,11 @@ func getMetrics() (*SystemMetrics, error) {
 }
 
 func metricsHandler(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers for the metrics endpoint
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
 	metrics, err := getMetrics()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -191,19 +215,25 @@ func main() {
 	metricsManager := NewMetricsManager()
 	go metricsManager.Run()
 
+	// Create a new mux for better routing control
+	mux := http.NewServeMux()
+
 	// Static file server for the HTML page
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
+	mux.Handle("/", fs)
 
-	// // API endpoints
-	http.HandleFunc("/metrics", metricsHandler)
-	// http.HandleFunc("/ws", metricsManager.wsHandler)
+	// API endpoints with CORS
+	mux.HandleFunc("/metrics", metricsHandler)
+	mux.HandleFunc("/ws", metricsManager.wsHandler)
 
-	port := ":8080"
+	// Apply CORS middleware to all routes
+	handler := corsMiddleware(mux)
+
+	port := ":8081"
 	log.Printf("Server starting on port %s", port)
 	log.Printf("Access metrics at http://localhost%s", port)
 	
-	if err := http.ListenAndServe(port, nil); err != nil {
+	if err := http.ListenAndServe(port, handler); err != nil {
 		log.Fatal(err)
 	}
 } 
