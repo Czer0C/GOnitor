@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>System Metrics Monitor</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+			background-color: #f5f5f5;
+		}
+
+		.metrics-container {
+			background-color: white;
+			border-radius: 8px;
+			padding: 20px;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		}
+
+		.metric {
+			margin-bottom: 15px;
+			padding: 10px;
+			border-radius: 4px;
+			background-color: #f8f9fa;
+		}
+
+		.metric h3 {
+			margin: 0 0 10px 0;
+			color: #333;
+		}
+
+		.value {
+			font-size: 1.2em;
+			color: #007bff;
+		}
+
+		.timestamp {
+			color: #666;
+			font-size: 0.9em;
+			margin-top: 10px;
+		}
+
+		.status {
+			margin-top: 10px;
+			padding: 10px;
+			border-radius: 4px;
+		}
+
+		.connected {
+			background-color: #d4edda;
+			color: #155724;
+		}
+
+		.disconnected {
+			background-color: #f8d7da;
+			color: #721c24;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="metrics-container">
+		<h1>System Metrics Monitor</h1>
+		<div id="status" class="status disconnected">Disconnected</div>
+
+		<div class="metric">
+			<h3>CPU Usage</h3>
+			<div id="cpu-usage" class="value">-</div>
+		</div>
+
+		<div class="metric">
+			<h3>Memory Usage</h3>
+			<div id="memory-total" class="value">Total: -</div>
+			<div id="memory-used" class="value">Used: -</div>
+			<div id="memory-free" class="value">Free: -</div>
+			<div id="memory-percent" class="value">Usage: -</div>
+		</div>
+
+		<div id="timestamp" class="timestamp">Last update: -</div>
+	</div>
+
+	<script>
+		const statusDiv = document.getElementById('status');
+		const cpuUsage = document.getElementById('cpu-usage');
+		const memoryTotal = document.getElementById('memory-total');
+		const memoryUsed = document.getElementById('memory-used');
+		const memoryFree = document.getElementById('memory-free');
+		const memoryPercent = document.getElementById('memory-percent');
+		const timestamp = document.getElementById('timestamp');
+
+		function connect() {
+			const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+			ws.onopen = () => {
+				statusDiv.textContent = 'Connected';
+				statusDiv.className = 'status connected';
+			};
+
+			ws.onclose = () => {
+				statusDiv.textContent = 'Disconnected - Reconnecting...';
+				statusDiv.className = 'status disconnected';
+				setTimeout(connect, 1000);
+			};
+
+			ws.onerror = (error) => {
+				console.error('WebSocket error:', error);
+			};
+
+			ws.onmessage = (event) => {
+				const data = JSON.parse(event.data);
+
+				cpuUsage.textContent = `${data.cpu_usage}%`;
+
+				memoryTotal.textContent = `Total: ${data.memory_usage.total}`;
+				memoryUsed.textContent = `Used: ${data.memory_usage.used}`;
+				memoryFree.textContent = `Free: ${data.memory_usage.free}`;
+				memoryPercent.textContent = `Usage: ${data.memory_usage.used_percent}%`;
+
+				timestamp.textContent = `Last update: ${new Date(data.timestamp).toLocaleString()}`;
+			};
+		}
+
+		connect();
+	</script>
+</body>
+
+</html>
