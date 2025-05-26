@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  gonitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gonitor
+    ports:
+      - "8081:8081"
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M 
